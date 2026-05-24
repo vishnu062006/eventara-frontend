@@ -12,29 +12,28 @@ export default function LandingPage() {
   const [modal, setModal] = useState<'login' | 'register' | null>(null);
 
   useEffect(() => {
-    if (isAuthenticated) router.push('/dashboard');
-  }, [isAuthenticated]);
+    if (isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, router]);
 
   return (
     <main className="min-h-screen bg-[#060910] flex flex-col items-center justify-center relative overflow-hidden">
-
-      {/* Animated grid background */}
-      <div className="absolute inset-0"
+      <div
+        className="absolute inset-0"
         style={{
           backgroundImage: `
             linear-gradient(rgba(88,166,255,0.03) 1px, transparent 1px),
             linear-gradient(90deg, rgba(88,166,255,0.03) 1px, transparent 1px)
           `,
-          backgroundSize: '80px 80px'
+          backgroundSize: '80px 80px',
         }}
       />
 
-      {/* Gradient orbs */}
       <div className="absolute top-20 left-20 w-72 h-72 bg-[#58a6ff] rounded-full opacity-[0.04] blur-3xl" />
       <div className="absolute bottom-20 right-20 w-96 h-96 bg-[#d2a8ff] rounded-full opacity-[0.04] blur-3xl" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#58a6ff] rounded-full opacity-[0.02] blur-3xl" />
 
-      {/* Floating event cards */}
       <motion.div
         animate={{ y: [0, -10, 0] }}
         transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
@@ -85,9 +84,7 @@ export default function LandingPage() {
         <p className="text-[#8b949e] text-xs">Workshop · ₹200</p>
       </motion.div>
 
-      {/* Main content */}
       <div className="relative z-10 text-center px-6 max-w-3xl mx-auto">
-
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -117,7 +114,9 @@ export default function LandingPage() {
           transition={{ delay: 0.3 }}
           className="text-[#8b949e] text-xl mb-10 leading-relaxed"
         >
-          Discover, register and manage campus events —<br className="hidden md:block" /> all in one place.
+          Discover, register and manage campus events —
+          <br className="hidden md:block" />
+          all in one place.
         </motion.p>
 
         <motion.div
@@ -134,6 +133,7 @@ export default function LandingPage() {
           >
             Get Started →
           </motion.button>
+
           <motion.button
             whileHover={{ scale: 1.05, y: -2 }}
             whileTap={{ scale: 0.95 }}
@@ -144,7 +144,6 @@ export default function LandingPage() {
           </motion.button>
         </motion.div>
 
-        {/* Stats row */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -157,16 +156,18 @@ export default function LandingPage() {
             { value: '5K+', label: 'Students' },
             { value: '·', label: '' },
             { value: '10+', label: 'Colleges' },
-          ].map((stat, i) => (
+          ].map((stat) =>
             stat.value === '·' ? (
-              <span key={i} className="text-[#30363d] text-2xl">·</span>
+              <span key={stat.value + Math.random()} className="text-[#30363d] text-2xl">
+                ·
+              </span>
             ) : (
-              <div key={i} className="text-center">
+              <div key={stat.value} className="text-center">
                 <div className="text-2xl font-black text-white">{stat.value}</div>
                 <div className="text-[#8b949e] text-xs">{stat.label}</div>
               </div>
             )
-          ))}
+          )}
         </motion.div>
       </div>
 

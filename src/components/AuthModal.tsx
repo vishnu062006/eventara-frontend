@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { useRouter } from 'next/navigation';
+import axios from 'axios';
 
 interface AuthModalProps {
   mode: 'login' | 'register';
@@ -12,27 +13,50 @@ interface AuthModalProps {
   onSwitch: () => void;
 }
 
+interface FormData {
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+}
+
 export default function AuthModal({ mode, onClose, onSwitch }: AuthModalProps) {
   const { login } = useAuth();
   const router = useRouter();
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'student' });
+
+  const [form, setForm] = useState<FormData>({
+    name: '',
+    email: '',
+    password: '',
+    role: 'student',
+  });
+
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
     setError('');
     setLoading(true);
+
     try {
       if (mode === 'register') {
         await api.post('/api/users/register', form);
         onSwitch();
       } else {
-        const res = await api.post('/api/users/login', { email: form.email, password: form.password });
+        const res = await api.post('/api/users/login', {
+          email: form.email,
+          password: form.password,
+        });
+
         login(res.data);
         router.push('/dashboard');
       }
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Something went wrong');
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.error || 'Something went wrong');
+      } else {
+        setError('Something went wrong');
+      }
     } finally {
       setLoading(false);
     }
@@ -54,35 +78,44 @@ export default function AuthModal({ mode, onClose, onSwitch }: AuthModalProps) {
         className="bg-[#0d1117] border border-[#30363d] rounded-3xl p-8 w-full max-w-md mx-4 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="mb-8">
           <div className="text-4xl font-black text-white mb-1">
             {mode === 'login' ? 'Welcome back.' : 'Join us.'}
           </div>
           <p className="text-[#8b949e]">
-            {mode === 'login' ? 'Sign in to your Eventara account' : 'Create your Eventara account'}
+            {mode === 'login'
+              ? 'Sign in to your Eventara account'
+              : 'Create your Eventara account'}
           </p>
         </div>
 
-        {/* Form */}
         <div className="space-y-4">
           {mode === 'register' && (
             <>
               <div>
-                <label className="block text-xs font-bold text-[#8b949e] uppercase tracking-widest mb-2">Full Name</label>
+                <label className="block text-xs font-bold text-[#8b949e] uppercase tracking-widest mb-2">
+                  Full Name
+                </label>
                 <input
                   type="text"
                   placeholder="Vishnu Mashalkar"
                   value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, name: e.target.value })
+                  }
                   className="input-style"
                 />
               </div>
+
               <div>
-                <label className="block text-xs font-bold text-[#8b949e] uppercase tracking-widest mb-2">Role</label>
+                <label className="block text-xs font-bold text-[#8b949e] uppercase tracking-widest mb-2">
+                  Role
+                </label>
                 <select
                   value={form.role}
-                  onChange={(e) => setForm({ ...form, role: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, role: e.target.value })
+                  }
                   className="input-style"
                 >
                   <option value="student">Student</option>
@@ -94,23 +127,31 @@ export default function AuthModal({ mode, onClose, onSwitch }: AuthModalProps) {
           )}
 
           <div>
-            <label className="block text-xs font-bold text-[#8b949e] uppercase tracking-widest mb-2">Email</label>
+            <label className="block text-xs font-bold text-[#8b949e] uppercase tracking-widest mb-2">
+              Email
+            </label>
             <input
               type="email"
               placeholder="vishnu@example.com"
               value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, email: e.target.value })
+              }
               className="input-style"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-[#8b949e] uppercase tracking-widest mb-2">Password</label>
+            <label className="block text-xs font-bold text-[#8b949e] uppercase tracking-widest mb-2">
+              Password
+            </label>
             <input
               type="password"
               placeholder="••••••••"
               value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, password: e.target.value })
+              }
               className="input-style"
             />
           </div>
@@ -136,10 +177,14 @@ export default function AuthModal({ mode, onClose, onSwitch }: AuthModalProps) {
           </motion.button>
         </div>
 
-        {/* Switch */}
         <div className="mt-6 text-center text-sm text-[#8b949e]">
-          {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
-          <button onClick={onSwitch} className="text-[#58a6ff] hover:underline font-bold">
+          {mode === 'login'
+            ? "Don't have an account? "
+            : 'Already have an account? '}
+          <button
+            onClick={onSwitch}
+            className="text-[#58a6ff] hover:underline font-bold"
+          >
             {mode === 'login' ? 'Register' : 'Sign In'}
           </button>
         </div>
