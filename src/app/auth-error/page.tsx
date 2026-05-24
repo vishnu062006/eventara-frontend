@@ -1,10 +1,11 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 
-export default function AuthError() {
+function AuthErrorContent() {
   const searchParams = useSearchParams();
   const reason = searchParams.get('reason');
   const router = useRouter();
@@ -31,5 +32,17 @@ export default function AuthError() {
         </button>
       </motion.div>
     </div>
+  );
+}
+
+export default function AuthError() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#060910] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#58a6ff] border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <AuthErrorContent />
+    </Suspense>
   );
 }
