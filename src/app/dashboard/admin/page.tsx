@@ -10,12 +10,35 @@ import api from '@/lib/api';
 export default function AdminPanel() {
   const { user } = useAuth();
   const router = useRouter();
+
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [requests, setRequests] = useState<any[]>([]);
+  const [reqLoading, setReqLoading] = useState(true);
+
+  const fetchRequests = async () => {
+    try {
+      const res = await api.get('/api/access-requests');
+      setRequests(res.data);
+    } catch {} finally {
+      setReqLoading(false);
+    }
+  };
+
+  const handleApprove = async (id: string) => {
+    await api.patch(`/api/access-requests/${id}/approve`);
+    fetchRequests();
+  };
+
+  const handleReject = async (id: string) => {
+    await api.patch(`/api/access-requests/${id}/reject`);
+    fetchRequests();
+  };
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') { router.push('/dashboard'); return; }
+    if (!user || user.role !== 'ADMIN') { router.push('/dashboard'); return; }
     api.get('/api/events').then(res => setEvents(res.data)).finally(() => setLoading(false));
+    fetchRequests();
   }, [user]);
 
   const totalRevenue = events.reduce((acc, e) => acc + (e.entryFee || 0), 0);
@@ -50,6 +73,62 @@ export default function AdminPanel() {
             ))}
           </div>
 
+          {/* Access Requests */}
+          <div className="bg-[#0d1117] border border-[#30363d] rounded-3xl overflow-hidden mb-8">
+            <div className="px-6 py-5 border-b border-[#30363d] flex items-center justify-between">
+              <h2 className="text-white font-black text-lg">Event Admin Requests</h2>
+              <span className="text-xs font-bold px-2 py-1 rounded-full bg-yellow-400/10 text-yellow-400">
+                {requests.filter(r => r.status === 'PENDING').length} Pending
+              </span>
+            </div>
+            {reqLoading ? (
+              <div className="p-8 text-center text-[#8b949e]">Loading...</div>
+            ) : requests.length === 0 ? (
+              <div className="p-8 text-center text-[#8b949e]">No requests yet.</div>
+            ) : (
+              <div className="divide-y divide-[#30363d]">
+                {requests.map((req, i) => (
+                  <motion.div
+                    key={req.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.03 }}
+                    className="px-6 py-4 flex items-center justify-between gap-4"
+                  >
+                    <div>
+                      <p className="text-white font-bold text-sm">{req.userName || `User #${req.userId}`}</p>
+                      <p className="text-[#8b949e] text-xs mt-0.5">
+                        {new Date(req.requestedAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {req.status === 'PENDING' ? (
+                        <>
+                          <button
+                            onClick={() => handleApprove(req.id)}
+                            className="bg-green-400/10 hover:bg-green-400/20 text-green-400 border border-green-400/20 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleReject(req.id)}
+                            className="bg-red-400/10 hover:bg-red-400/20 text-red-400 border border-red-400/20 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      ) : (
+                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                          req.status === 'APPROVED' ? 'bg-green-400/10 text-green-400' : 'bg-red-400/10 text-red-400'
+                        }`}>{req.status}</span>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Events Table */}
           <div className="bg-[#0d1117] border border-[#30363d] rounded-3xl overflow-hidden">
             <div className="px-6 py-5 border-b border-[#30363d]">
@@ -63,9 +142,7 @@ export default function AdminPanel() {
                   <thead>
                     <tr className="border-b border-[#30363d]">
                       {['Title', 'Organizer', 'Status', 'Capacity', 'Fee', 'Date'].map(h => (
-                        <th key={h} className="px-6 py-3 text-left text-xs font-bold text-[#8b949e] uppercase tracking-widest">
-                          {h}
-                        </th>
+                        <th key={h} className="px-6 py-3 text-left text-xs font-bold text-[#8b949e] uppercase tracking-widest">{h}</th>
                       ))}
                     </tr>
                   </thead>
