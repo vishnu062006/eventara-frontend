@@ -5,17 +5,24 @@ import { AuthProvider } from '@/context/AuthContext'
 import { ThemeProvider } from '@/components/Navbar'
 import { Toaster } from 'react-hot-toast'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+})
 
 export const metadata: Metadata = {
   title: 'Eventara',
   description: 'Campus Event Management System',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={`${inter.variable} font-sans`}>
         <AuthProvider>
           <ThemeProvider>
             {children}
@@ -46,7 +53,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 },
               }}
             />
-
           </ThemeProvider>
         </AuthProvider>
       </body>

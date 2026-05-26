@@ -69,13 +69,13 @@ export default function Navbar() {
   const navLinks = [
     { href: '/dashboard', label: 'Events', icon: '◈' },
     { href: '/dashboard/wallet', label: 'Wallet', icon: '◎' },
-    ...(user?.role === 'event_admin' || user?.role === 'admin'
+    ...(user?.role === 'EVENT_ADMIN' || user?.role === 'ADMIN'
       ? [
           { href: '/dashboard/create', label: 'Create', icon: '⊕' },
           { href: '/dashboard/my-events', label: 'My Events', icon: '◉' },
         ]
       : []),
-    ...(user?.role === 'admin'
+    ...(user?.role === 'ADMIN'
       ? [{ href: '/dashboard/admin', label: 'Admin', icon: '⊛' }]
       : []),
   ];
@@ -92,7 +92,6 @@ export default function Navbar() {
           font-family: 'DM Sans', sans-serif;
         }
         .nav-brand {
-          font-family: 'Syne', sans-serif;
           font-weight: 800;
           font-size: 20px;
           letter-spacing: -0.04em;
@@ -187,7 +186,6 @@ export default function Navbar() {
           display: flex;
           align-items: center;
           justify-content: center;
-          font-family: 'Syne', sans-serif;
           font-size: 12px;
           font-weight: 800;
           color: #060910;
@@ -218,7 +216,6 @@ export default function Navbar() {
           margin-bottom: 4px;
         }
         .drop-name {
-          font-family: 'Syne', sans-serif;
           font-size: 13px;
           font-weight: 700;
           color: var(--text);
@@ -451,7 +448,7 @@ export default function Navbar() {
               transition={{ type: 'spring', damping: 28, stiffness: 320 }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
-                <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 18, color: 'var(--text)' }}>
+                <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--text)' }}>
                   Event<span style={{ background: 'linear-gradient(135deg,#58a6ff,#a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>ara</span>
                 </span>
                 <button onClick={() => setMenuOpen(false)} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', color: 'var(--muted)', fontSize: 14 }}>✕</button>
@@ -460,7 +457,7 @@ export default function Navbar() {
               {/* User info */}
               {user && (
                 <div style={{ padding: '10px 14px', background: 'var(--surface2)', borderRadius: 10, marginBottom: 8 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)', fontFamily: "'Syne', sans-serif" }}>{user.name}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)'}}>{user.name}</div>
                   <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{user.role}</div>
                 </div>
               )}

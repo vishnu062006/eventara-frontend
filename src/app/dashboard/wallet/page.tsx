@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import toast from 'react-hot-toast';
 import { fireConfetti } from '@/lib/confetti';
+import { ArrowLeft, ArrowUpRight, ArrowDownRight, Wallet, Receipt, X, ShieldCheck } from 'lucide-react';
 
 interface Transaction {
   id: number;
@@ -67,43 +68,10 @@ export default function WalletPage() {
 
     setPaying(true);
 
-    // TODO: Replace this block with real Razorpay when keys are ready
-    // ── Razorpay skeleton ──────────────────────────────────────────
-    // Step 1: Create order on backend
-    // const orderRes = await api.post('/api/wallet/create-order', { amount: finalAmount, userId: user.id });
-    // const { orderId, amount, currency } = orderRes.data;
-    //
-    // Step 2: Open Razorpay checkout
-    // const options = {
-    //   key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-    //   amount,
-    //   currency,
-    //   name: 'Eventara',
-    //   description: 'Wallet Top-up',
-    //   order_id: orderId,
-    //   handler: async (response) => {
-    //     await api.post('/api/wallet/verify-payment', {
-    //       razorpay_order_id: response.razorpay_order_id,
-    //       razorpay_payment_id: response.razorpay_payment_id,
-    //       razorpay_signature: response.razorpay_signature,
-    //       userId: user.id,
-    //       amount: finalAmount,
-    //     });
-    //     toast.success(`₹${finalAmount} added to wallet!`);
-    //     fetchWalletData();
-    //     setShowAddMoney(false);
-    //   },
-    //   prefill: { name: user.name, email: user.email },
-    //   theme: { color: '#58a6ff' },
-    // };
-    // const rzp = new (window as any).Razorpay(options);
-    // rzp.open();
-    // ──────────────────────────────────────────────────────────────
-
     // ── MOCK payment (remove when Razorpay keys added) ────────────
     try {
       await api.post(`/api/wallet/${user!.id}/topup`, { amount: finalAmount });
-      fireConfetti(); // 🔥 ADDED
+      fireConfetti();
       toast.success(`₹${finalAmount} added to your wallet! 🎉`);
       setShowAddMoney(false);
       setSelectedAmount(null);
@@ -119,637 +87,225 @@ export default function WalletPage() {
   };
 
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap');
+    <div className="min-h-screen bg-[var(--bg)] font-sans px-6 pt-20 pb-16 text-[var(--text)]">
+      <div className="max-w-2xl mx-auto">
+        
+        {/* Back Button */}
+        <motion.button
+          onClick={() => router.back()}
+          initial={{ opacity: 0, x: -8 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="flex items-center gap-2 px-4 py-2 mb-8 text-sm font-medium transition-colors border rounded-lg bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--surface2)] hover:border-blue-500/30"
+        >
+          <ArrowLeft size={16} /> Back
+        </motion.button>
 
-        .wallet-wrap {
-          font-family: 'DM Sans', sans-serif;
-          min-height: 100vh;
-          background: var(--bg);
-          padding: 80px 24px 60px;
-        }
-        .wallet-inner { max-width: 680px; margin: 0 auto; }
+        {/* Header */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+          <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">Wallet</h1>
+          <p className="mt-1 font-light text-[var(--muted)] text-sm md:text-base">Manage your balance and transaction history</p>
+        </motion.div>
 
-        .back-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 7px 14px;
-          border-radius: 8px;
-          border: 1px solid var(--border);
-          background: var(--surface);
-          color: var(--muted);
-          font-size: 13px;
-          font-weight: 500;
-          cursor: pointer;
-          margin-bottom: 32px;
-          transition: all 0.2s;
-          font-family: 'DM Sans', sans-serif;
-        }
-        .back-btn:hover {
-          color: var(--text);
-          border-color: rgba(88,166,255,0.3);
-          background: var(--surface2);
-        }
+        {/* Balance Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="relative overflow-hidden border rounded-3xl bg-[var(--surface)] border-[var(--border)] p-7 md:p-8 mb-8"
+        >
+          {/* Decorative Glow */}
+          <div className="absolute top-[-100px] right-[-100px] w-[300px] h-[300px] bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        .page-title {
-          font-family: 'Syne', sans-serif;
-          font-size: 32px;
-          font-weight: 800;
-          color: var(--text);
-          letter-spacing: -0.03em;
-          margin-bottom: 6px;
-        }
-        .page-sub {
-          font-size: 14px;
-          color: var(--muted);
-          margin-bottom: 28px;
-          font-weight: 300;
-        }
-
-        .balance-card {
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 20px;
-          padding: 28px;
-          margin-bottom: 24px;
-          position: relative;
-          overflow: hidden;
-        }
-        .balance-card::before {
-          content: '';
-          position: absolute;
-          top: -60px; right: -60px;
-          width: 200px; height: 200px;
-          background: radial-gradient(circle, rgba(88,166,255,0.08) 0%, transparent 70%);
-          pointer-events: none;
-        }
-        .balance-card-inner {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: 16px;
-          flex-wrap: wrap;
-        }
-        .balance-label {
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: var(--muted);
-          font-family: 'Syne', sans-serif;
-          margin-bottom: 8px;
-        }
-        .balance-amount {
-          font-family: 'Syne', sans-serif;
-          font-size: 48px;
-          font-weight: 800;
-          letter-spacing: -0.04em;
-          line-height: 1;
-          background: linear-gradient(135deg, #58a6ff, #a78bfa);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-        .balance-sub {
-          font-size: 12px;
-          color: var(--muted);
-          margin-top: 8px;
-          font-weight: 300;
-        }
-        .admin-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 6px 12px;
-          border-radius: 8px;
-          background: linear-gradient(135deg, rgba(88,166,255,0.12), rgba(167,139,250,0.12));
-          border: 1px solid rgba(88,166,255,0.2);
-          font-size: 11px;
-          font-weight: 700;
-          font-family: 'Syne', sans-serif;
-          color: #a78bfa;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-        }
-
-        .add-money-btn {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 12px 20px;
-          border-radius: 12px;
-          background: linear-gradient(135deg, #58a6ff, #a78bfa);
-          border: none;
-          color: #060910;
-          font-family: 'Syne', sans-serif;
-          font-size: 13px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.2s;
-          box-shadow: 0 4px 16px rgba(88,166,255,0.2);
-          white-space: nowrap;
-          align-self: flex-end;
-        }
-        .add-money-btn:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 8px 24px rgba(88,166,255,0.32);
-        }
-
-        .stats-row {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 12px;
-          margin-bottom: 28px;
-        }
-        .stat-tile {
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 14px;
-          padding: 16px;
-          text-align: center;
-        }
-        .stat-value {
-          font-family: 'Syne', sans-serif;
-          font-size: 20px;
-          font-weight: 800;
-          color: var(--text);
-          letter-spacing: -0.02em;
-        }
-        .stat-label {
-          font-size: 11px;
-          color: var(--muted);
-          margin-top: 4px;
-          font-weight: 400;
-        }
-
-        .section-title {
-          font-family: 'Syne', sans-serif;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: var(--muted);
-          margin-bottom: 12px;
-        }
-
-        .tx-list { display: flex; flex-direction: column; gap: 8px; }
-
-        .tx-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 14px 16px;
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          transition: border-color 0.15s, background 0.15s;
-          cursor: default;
-        }
-        .tx-row:hover {
-          border-color: rgba(88,166,255,0.15);
-          background: var(--surface2);
-        }
-        .tx-left { display: flex; align-items: center; gap: 12px; }
-        .tx-icon {
-          width: 36px; height: 36px;
-          border-radius: 10px;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 15px;
-          flex-shrink: 0;
-        }
-        .tx-desc {
-          font-size: 13px;
-          font-weight: 500;
-          color: var(--text);
-          margin-bottom: 2px;
-          max-width: 260px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .tx-date { font-size: 11px; color: var(--muted); }
-        .tx-right { text-align: right; flex-shrink: 0; }
-        .tx-amount {
-          font-family: 'Syne', sans-serif;
-          font-size: 14px;
-          font-weight: 800;
-          letter-spacing: -0.02em;
-        }
-        .tx-bal { font-size: 11px; color: var(--muted); margin-top: 2px; }
-
-        .empty-state {
-          text-align: center;
-          padding: 60px 24px;
-          color: var(--muted);
-        }
-        .empty-icon {
-          font-size: 40px;
-          margin-bottom: 12px;
-          opacity: 0.4;
-        }
-        .empty-text {
-          font-size: 14px;
-          font-weight: 300;
-        }
-
-        /* ── Modal ── */
-        .modal-overlay {
-          position: fixed; inset: 0; z-index: 100;
-          background: rgba(0,0,0,0.7);
-          backdrop-filter: blur(8px);
-          display: flex; align-items: center; justify-content: center;
-          padding: 16px;
-        }
-        .modal-box {
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 20px;
-          width: 100%; max-width: 440px;
-          box-shadow: 0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(88,166,255,0.06);
-          overflow: hidden;
-        }
-        .modal-header {
-          padding: 24px 24px 16px;
-          border-bottom: 1px solid var(--border);
-          display: flex; justify-content: space-between; align-items: flex-start;
-        }
-        .modal-title {
-          font-family: 'Syne', sans-serif;
-          font-size: 20px;
-          font-weight: 800;
-          color: var(--text);
-          letter-spacing: -0.02em;
-        }
-        .modal-sub { font-size: 13px; color: var(--muted); margin-top: 2px; font-weight: 300; }
-        .close-btn {
-          width: 32px; height: 32px;
-          border-radius: 8px;
-          background: var(--surface2);
-          border: 1px solid var(--border);
-          color: var(--muted);
-          cursor: pointer;
-          font-size: 14px;
-          display: flex; align-items: center; justify-content: center;
-          transition: all 0.15s;
-          flex-shrink: 0;
-        }
-        .close-btn:hover { color: var(--text); border-color: var(--muted); }
-
-        .modal-body { padding: 20px 24px; }
-
-        .presets-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 8px;
-          margin-bottom: 16px;
-        }
-        .preset-btn {
-          padding: 12px 8px;
-          border-radius: 10px;
-          border: 1px solid var(--border);
-          background: var(--surface2);
-          color: var(--muted);
-          font-family: 'Syne', sans-serif;
-          font-size: 14px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.15s;
-          text-align: center;
-        }
-        .preset-btn:hover {
-          border-color: rgba(88,166,255,0.4);
-          color: var(--text);
-        }
-        .preset-btn.selected {
-          border-color: #58a6ff;
-          background: rgba(88,166,255,0.1);
-          color: #58a6ff;
-        }
-
-        .custom-label {
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: var(--muted);
-          margin-bottom: 8px;
-          font-family: 'Syne', sans-serif;
-        }
-        .custom-input {
-          width: 100%;
-          padding: 12px 14px 12px 36px;
-          border-radius: 10px;
-          border: 1px solid var(--border);
-          background: var(--surface2);
-          color: var(--text);
-          font-size: 15px;
-          font-family: 'Syne', sans-serif;
-          font-weight: 700;
-          outline: none;
-          transition: border-color 0.2s;
-          box-sizing: border-box;
-        }
-        .custom-input:focus { border-color: #58a6ff; }
-        .custom-input-wrap { position: relative; margin-bottom: 20px; }
-        .rupee-prefix {
-          position: absolute;
-          left: 14px; top: 50%;
-          transform: translateY(-50%);
-          font-family: 'Syne', sans-serif;
-          font-weight: 700;
-          font-size: 15px;
-          color: var(--muted);
-          pointer-events: none;
-        }
-
-        .pay-btn {
-          width: 100%;
-          padding: 14px;
-          border-radius: 12px;
-          border: none;
-          background: linear-gradient(135deg, #58a6ff, #a78bfa);
-          color: #060910;
-          font-family: 'Syne', sans-serif;
-          font-size: 14px;
-          font-weight: 800;
-          cursor: pointer;
-          transition: all 0.2s;
-          box-shadow: 0 4px 20px rgba(88,166,255,0.25);
-          letter-spacing: 0.01em;
-        }
-        .pay-btn:hover:not(:disabled) {
-          transform: translateY(-1px);
-          box-shadow: 0 8px 28px rgba(88,166,255,0.35);
-        }
-        .pay-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
-
-        .modal-note {
-          font-size: 11px;
-          color: var(--muted);
-          text-align: center;
-          margin-top: 12px;
-          font-weight: 300;
-          line-height: 1.5;
-        }
-
-        .skeleton {
-          background: var(--surface);
-          border-radius: 12px;
-          animation: shimmer 1.4s infinite;
-        }
-        @keyframes shimmer {
-          0%, 100% { opacity: 0.5; }
-          50% { opacity: 1; }
-        }
-      `}</style>
-
-      <div className="wallet-wrap">
-        <div className="wallet-inner">
-
-          {/* Back */}
-          <motion.button
-            className="back-btn"
-            onClick={() => router.back()}
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-          >
-            ← Back
-          </motion.button>
-
-          {/* Title */}
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-            <h1 className="page-title">Wallet</h1>
-            <p className="page-sub">Manage your balance and transaction history</p>
-          </motion.div>
-
-          {/* Balance Card */}
-          <motion.div
-            className="balance-card"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <div className="balance-card-inner">
-              <div>
-                <div className="balance-label">Available Balance</div>
-                <div className="balance-amount">
-                  {loading ? '—' : isAdmin ? '∞' : `₹${balance.toFixed(2)}`}
-                </div>
-                {isAdmin ? (
-                  <div style={{ marginTop: 10 }}>
-                    <span className="admin-badge">⚡ Admin · Unlimited Access</span>
-                  </div>
-                ) : (
-                  <div className="balance-sub">Used for registrations · Refunds credited here</div>
-                )}
+          <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-end md:gap-4">
+            <div>
+              <div className="text-xs font-bold tracking-widest uppercase text-[var(--muted)] mb-2">Available Balance</div>
+              <div className="text-5xl md:text-6xl font-extrabold tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-[#58a6ff] to-[#a78bfa] leading-none">
+                {loading ? '—' : isAdmin ? '∞' : `₹${balance.toFixed(2)}`}
               </div>
-              {!isAdmin && (
-                <button className="add-money-btn" onClick={() => setShowAddMoney(true)}>
-                  + Add Money
-                </button>
+              
+              {isAdmin ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 mt-4 text-xs font-bold uppercase tracking-wider text-purple-400 border border-blue-500/20 rounded-lg bg-gradient-to-br from-blue-500/10 to-purple-500/10">
+                  ⚡ Admin · Unlimited Access
+                </div>
+              ) : (
+                <div className="mt-3 text-xs font-light text-[var(--muted)]">Used for registrations · Refunds credited here</div>
               )}
             </div>
-          </motion.div>
 
-          {/* Stats */}
-          {!loading && !isAdmin && (
-            <motion.div
-              className="stats-row"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
-            >
-              {[
-                {
-                  value: `₹${transactions.filter(t => t.type === 'CREDIT').reduce((s, t) => s + Math.abs(t.amount), 0).toFixed(0)}`,
-                  label: 'Total Credited',
-                  color: '#3fb950',
-                },
-                {
-                  value: `₹${transactions.filter(t => t.type === 'DEBIT').reduce((s, t) => s + Math.abs(t.amount), 0).toFixed(0)}`,
-                  label: 'Total Spent',
-                  color: '#f85149',
-                },
-                {
-                  value: `${transactions.length}`,
-                  label: 'Transactions',
-                  color: '#58a6ff',
-                },
-              ].map(({ value, label, color }) => (
-                <div className="stat-tile" key={label}>
-                  <div className="stat-value" style={{ color }}>{value}</div>
-                  <div className="stat-label">{label}</div>
-                </div>
-              ))}
-            </motion.div>
-          )}
+            {!isAdmin && (
+              <button 
+                onClick={() => setShowAddMoney(true)}
+                className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-bold text-gray-950 transition-all rounded-xl bg-gradient-to-br from-[#58a6ff] to-[#a78bfa] hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(88,166,255,0.3)] shadow-[0_4px_16px_rgba(88,166,255,0.2)]"
+              >
+                <Wallet size={18} /> Add Money
+              </button>
+            )}
+          </div>
+        </motion.div>
 
-          {/* Transactions */}
+        {/* Stats Row */}
+        {!loading && !isAdmin && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
+            transition={{ delay: 0.15 }}
+            className="grid grid-cols-3 gap-3 md:gap-4 mb-8"
           >
-            <div className="section-title">Transaction History</div>
-
-            {loading ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="skeleton" style={{ height: 64 }} />
-                ))}
+            {[
+              { value: `₹${transactions.filter(t => t.type === 'CREDIT').reduce((s, t) => s + Math.abs(t.amount), 0).toFixed(0)}`, label: 'Total Credited', color: 'text-green-500' },
+              { value: `₹${transactions.filter(t => t.type === 'DEBIT').reduce((s, t) => s + Math.abs(t.amount), 0).toFixed(0)}`, label: 'Total Spent', color: 'text-red-500' },
+              { value: `${transactions.length}`, label: 'Transactions', color: 'text-blue-500' },
+            ].map(({ value, label, color }) => (
+              <div key={label} className="p-4 text-center border rounded-2xl bg-[var(--surface)] border-[var(--border)]">
+                <div className={`text-lg md:text-xl font-extrabold tracking-tight ${color}`}>{value}</div>
+                <div className="mt-1 text-xs text-[var(--muted)]">{label}</div>
               </div>
-            ) : transactions.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">🧾</div>
-                <div className="empty-text">No transactions yet.<br />Register for an event to get started.</div>
-              </div>
-            ) : (
-              <div className="tx-list">
-                {transactions.map((tx, i) => (
-                  <motion.div
-                    key={tx.id}
-                    className="tx-row"
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.04 }}
-                  >
-                    <div className="tx-left">
-                      <div
-                        className="tx-icon"
-                        style={{
-                          background: tx.type === 'CREDIT' ? 'rgba(63,185,80,0.1)' : 'rgba(248,81,73,0.1)',
-                        }}
-                      >
-                        {tx.type === 'CREDIT' ? '↑' : '↓'}
-                      </div>
-                      <div>
-                        <div className="tx-desc">{tx.description}</div>
-                        <div className="tx-date">
-                          {new Date(tx.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
-                          {' · '}
-                          {new Date(tx.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="tx-right">
-                      <div
-                        className="tx-amount"
-                        style={{ color: tx.type === 'CREDIT' ? '#3fb950' : '#f85149' }}
-                      >
-                        {tx.type === 'CREDIT' ? '+' : '-'}₹{Math.abs(tx.amount).toFixed(2)}
-                      </div>
-                      <div className="tx-bal">₹{tx.balanceAfter.toFixed(2)}</div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
+            ))}
           </motion.div>
-        </div>
+        )}
+
+        {/* Transaction History */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <div className="text-xs font-bold tracking-widest uppercase text-[var(--muted)] mb-4">Transaction History</div>
+
+          {loading ? (
+            <div className="space-y-2">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="h-16 rounded-xl bg-[var(--surface)] animate-pulse" />
+              ))}
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="py-16 text-center text-[var(--muted)]">
+              <Receipt size={40} className="mx-auto mb-3 opacity-40" />
+              <div className="text-sm font-light">No transactions yet.<br />Register for an event to get started.</div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {transactions.map((tx, i) => (
+                <motion.div
+                  key={tx.id}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.04 }}
+                  className="flex items-center justify-between p-4 transition-colors border rounded-xl bg-[var(--surface)] border-[var(--border)] hover:border-blue-500/20 hover:bg-[var(--surface2)]"
+                >
+                  <div className="flex items-center gap-4 overflow-hidden">
+                    <div className={`flex items-center justify-center shrink-0 w-10 h-10 rounded-xl ${tx.type === 'CREDIT' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                      {tx.type === 'CREDIT' ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate text-[var(--text)]">{tx.description}</div>
+                      <div className="text-xs text-[var(--muted)] mt-0.5">
+                        {new Date(tx.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })} · {new Date(tx.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 ml-4">
+                    <div className={`text-sm font-extrabold tracking-tight ${tx.type === 'CREDIT' ? 'text-green-500' : 'text-red-500'}`}>
+                      {tx.type === 'CREDIT' ? '+' : '-'}₹{Math.abs(tx.amount).toFixed(2)}
+                    </div>
+                    <div className="mt-0.5 text-xs text-[var(--muted)]">₹{tx.balanceAfter.toFixed(2)}</div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </motion.div>
       </div>
 
-      {/* ── Add Money Modal ── */}
+      {/* Add Money Modal */}
       <AnimatePresence>
         {showAddMoney && (
           <motion.div
-            className="modal-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShowAddMoney(false)}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
           >
             <motion.div
-              className="modal-box"
-              initial={{ scale: 0.93, opacity: 0, y: 20 }}
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.93, opacity: 0, y: 20 }}
-              transition={{ type: 'spring', damping: 22, stiffness: 300 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md overflow-hidden border rounded-3xl bg-[var(--surface)] border-[var(--border)] shadow-2xl"
             >
-              <div className="modal-header">
+              {/* Modal Header */}
+              <div className="flex items-start justify-between p-6 border-b border-[var(--border)]">
                 <div>
-                  <div className="modal-title">Add Money</div>
-                  <div className="modal-sub">Secure payment via Razorpay</div>
+                  <h2 className="text-xl font-extrabold tracking-tight">Add Money</h2>
+                  <p className="mt-1 text-sm font-light text-[var(--muted)] flex items-center gap-1">
+                    <ShieldCheck size={14} className="text-blue-400" /> Secure payment via Razorpay
+                  </p>
                 </div>
-                <button className="close-btn" onClick={() => setShowAddMoney(false)}>✕</button>
+                <button 
+                  onClick={() => setShowAddMoney(false)}
+                  className="flex items-center justify-center w-8 h-8 transition-colors border rounded-lg bg-[var(--surface2)] border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)] hover:border-[var(--muted)]"
+                >
+                  <X size={16} />
+                </button>
               </div>
 
-              <div className="modal-body">
-                {/* Preset amounts */}
-                <div style={{ marginBottom: 8, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', fontFamily: "'Syne', sans-serif" }}>
-                  Select Amount
-                </div>
-                <div className="presets-grid">
+              {/* Modal Body */}
+              <div className="p-6">
+                <div className="text-xs font-bold tracking-widest uppercase text-[var(--muted)] mb-3">Select Amount</div>
+                
+                <div className="grid grid-cols-3 gap-2 mb-6">
                   {PRESET_AMOUNTS.map((amt) => (
                     <button
                       key={amt}
-                      className={`preset-btn ${selectedAmount === amt ? 'selected' : ''}`}
-                      onClick={() => {
-                        setSelectedAmount(amt);
-                        setCustomAmount('');
-                      }}
+                      onClick={() => { setSelectedAmount(amt); setCustomAmount(''); }}
+                      className={`py-3 text-sm font-bold transition-all border rounded-xl ${
+                        selectedAmount === amt 
+                        ? 'border-blue-500 bg-blue-500/10 text-blue-500' 
+                        : 'border-[var(--border)] bg-[var(--surface2)] text-[var(--muted)] hover:border-blue-500/40 hover:text-[var(--text)]'
+                      }`}
                     >
                       ₹{amt}
                     </button>
                   ))}
                 </div>
 
-                {/* Custom amount */}
-                <div className="custom-label">Or enter custom amount</div>
-                <div className="custom-input-wrap">
-                  <span className="rupee-prefix">₹</span>
+                <div className="text-xs font-bold tracking-widest uppercase text-[var(--muted)] mb-3">Or enter custom amount</div>
+                <div className="relative mb-6">
+                  <span className="absolute text-sm font-bold -translate-y-1/2 text-[var(--muted)] left-4 top-1/2">₹</span>
                   <input
                     type="number"
-                    className="custom-input"
                     placeholder="0"
-                    value={customAmount}
                     min={10}
                     max={50000}
-                    onChange={(e) => {
-                      setCustomAmount(e.target.value);
-                      setSelectedAmount(null);
-                    }}
+                    value={customAmount}
+                    onChange={(e) => { setCustomAmount(e.target.value); setSelectedAmount(null); }}
+                    className="w-full py-3 pl-8 pr-4 text-sm font-bold transition-colors border rounded-xl bg-[var(--surface2)] border-[var(--border)] text-[var(--text)] focus:border-blue-500 outline-none"
                   />
                 </div>
 
-                {/* Summary */}
+                {/* Live Preview */}
                 {finalAmount && finalAmount >= 10 && (
                   <motion.div
-                    initial={{ opacity: 0, y: 4 }}
+                    initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: 10,
-                      background: 'rgba(88,166,255,0.06)',
-                      border: '1px solid rgba(88,166,255,0.15)',
-                      marginBottom: 16,
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}
+                    className="flex items-center justify-between p-4 mb-6 border rounded-xl bg-blue-500/5 border-blue-500/20"
                   >
-                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>New balance after top-up</span>
-                    <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 15, color: '#58a6ff' }}>
-                      ₹{(balance + finalAmount).toFixed(2)}
-                    </span>
+                    <span className="text-sm text-[var(--muted)]">New balance after top-up</span>
+                    <span className="font-extrabold text-blue-500">₹{(balance + finalAmount).toFixed(2)}</span>
                   </motion.div>
                 )}
 
                 <button
-                  className="pay-btn"
                   onClick={handleAddMoney}
                   disabled={paying || !finalAmount || finalAmount < 10}
+                  className="w-full py-4 text-sm font-extrabold text-gray-950 transition-all rounded-xl bg-gradient-to-br from-[#58a6ff] to-[#a78bfa] disabled:opacity-50 disabled:cursor-not-allowed hover:not-disabled:-translate-y-0.5 hover:not-disabled:shadow-[0_8px_24px_rgba(88,166,255,0.3)] shadow-[0_4px_16px_rgba(88,166,255,0.2)]"
                 >
-                  {paying
-                    ? 'Processing...'
-                    : finalAmount && finalAmount >= 10
-                    ? `Add ₹${finalAmount} to Wallet`
+                  {paying 
+                    ? 'Processing...' 
+                    : finalAmount && finalAmount >= 10 
+                    ? `Add ₹${finalAmount} to Wallet` 
                     : 'Select an Amount'}
                 </button>
 
-                <p className="modal-note">
+                <p className="mt-4 text-xs font-light leading-relaxed text-center text-[var(--muted)]">
                   🔒 Payments secured by Razorpay · UPI, Cards, Net Banking supported
                 </p>
               </div>
@@ -757,6 +313,6 @@ export default function WalletPage() {
           </motion.div>
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 }
