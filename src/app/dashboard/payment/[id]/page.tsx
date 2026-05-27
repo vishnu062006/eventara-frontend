@@ -56,21 +56,10 @@ export default function PaymentPage() {
     if (!user?.id) return;
     setPaying(true);
     try {
-      const res = await api.post(`/api/events/${id}/register`, { userId: user?.id });
-
+      const res = await api.post(`/api/events/${id}/register`, { userId: user.id });
       const regId = res.data.registrationId;
       setRegistrationId(regId);
       await generateQR(regId);
-      
-      // --- THE MAGIC FIX IS HERE ---
-      // 1. Optimistic UI update: Instantly subtract the fee from the local state
-      setBalance(prev => prev - event.entryFee); 
-      
-      // 2. Clear Next.js Router Cache: This forces the dashboard to fetch 
-      // fresh data from the server the next time you navigate to it.
-      router.refresh(); 
-      // -----------------------------
-
       setSuccess(true);
       fireConfetti();
     } catch (err: unknown) {
@@ -82,7 +71,7 @@ export default function PaymentPage() {
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
       <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1.5 }}
-        style={{ color: 'var(--muted)', fontSize: 14, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        style={{ color: 'var(--muted)', fontFamily: "'Syne',sans-serif", fontSize: 14, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
         Loading
       </motion.div>
     </div>
