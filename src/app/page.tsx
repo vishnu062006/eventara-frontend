@@ -184,7 +184,7 @@ export default function LandingPage() {
           <FadeIn delay={0.1}>
             <div className="inline-flex items-center gap-2 px-3 py-1.5 mb-8 rounded-full bg-white/5 border border-white/10 text-xs font-semibold tracking-wide text-zinc-300 hover:bg-white/10 transition-colors cursor-default">
               <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
-              Introducing the Campus OS
+              Introducing Eventara
             </div>
           </FadeIn>
 

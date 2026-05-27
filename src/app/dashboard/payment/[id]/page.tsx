@@ -56,10 +56,21 @@ export default function PaymentPage() {
     if (!user?.id) return;
     setPaying(true);
     try {
-      const res = await api.post(`/api/events/${id}/register`, { userId: user.id });
+      const res = await api.post(`/api/events/${id}/register`, { userId: user?.id });
+
       const regId = res.data.registrationId;
       setRegistrationId(regId);
       await generateQR(regId);
+      
+      // --- THE MAGIC FIX IS HERE ---
+      // 1. Optimistic UI update: Instantly subtract the fee from the local state
+      setBalance(prev => prev - event.entryFee); 
+      
+      // 2. Clear Next.js Router Cache: This forces the dashboard to fetch 
+      // fresh data from the server the next time you navigate to it.
+      router.refresh(); 
+      // -----------------------------
+
       setSuccess(true);
       fireConfetti();
     } catch (err: unknown) {

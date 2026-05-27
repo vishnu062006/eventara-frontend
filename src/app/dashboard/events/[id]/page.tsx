@@ -102,7 +102,7 @@ const [registrationId, setRegistrationId] = useState<number | null>(null);
       return;
     }
   
-    if (event?.entryFee && event.entryFee > 0) {
+    if (!isRegistered && event?.entryFee && event.entryFee > 0) {
       router.push(`/dashboard/payment/${id}`);
       return;
     }
@@ -199,6 +199,22 @@ const [registrationId, setRegistrationId] = useState<number | null>(null);
   const spotsLeft = event.maxParticipants - participantCount;
   const fillPercent = Math.min(100, (participantCount / event.maxParticipants) * 100);
   const isFree = !event.entryFee || event.entryFee === 0;
+  const handleCancelRegistration = async () => {
+    try {
+      setRegistering(true);
+  
+      await api.delete(`/api/events/${event.id}/register`, {
+        data: { userId: user?.id }
+      });
+  
+      toast.success('Registration cancelled successfully');
+      setIsRegistered(false);
+    } catch (err) {
+      toast.error('Failed to cancel registration');
+    } finally {
+      setRegistering(false);
+    }
+  };
 
   const statusMap: Record<string, { color: string; bg: string; label: string }> = {
     UPCOMING: { color: '#3fb950', bg: 'rgba(63,185,80,0.08)', label: 'Upcoming' },
@@ -442,16 +458,21 @@ const [registrationId, setRegistrationId] = useState<number | null>(null);
                 {/* Main action button */}
                 {user && event.status !== 'EXPIRED' && !isOnWaitlist ? (
                   <>
-                    {isRegistered ? (
-                      <button
-                        className="reg-btn"
-                        onClick={handleRegister}
-                        disabled={registering}
-                        style={{ background: 'rgba(248,81,73,0.08)', color: '#f85149', border: '1px solid rgba(248,81,73,0.25)' }}
-                      >
-                        {registering ? 'Cancelling...' : 'Cancel Registration'}
-                      </button>
-                    ) : spotsLeft === 0 ? (
+                {isRegistered ? (
+  <button
+    className="reg-btn"
+    onClick={handleCancelRegistration}
+    disabled={registering}
+    style={{
+      background: 'rgba(248,81,73,0.08)',
+      color: '#f85149',
+      border: '1px solid rgba(248,81,73,0.25)'
+    }}
+  >
+    {registering ? 'Cancelling...' : 'Cancel Registration'}
+  </button>
+)
+                     : spotsLeft === 0 ? (
                       <button
                         className="reg-btn"
                         onClick={handleRegister}
