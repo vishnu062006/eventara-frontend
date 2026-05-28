@@ -72,7 +72,6 @@ export default function Navbar() {
     ...(user?.role === 'EVENT_ADMIN' || user?.role === 'ADMIN'
       ? [
           { href: '/dashboard/create', label: 'Create', icon: '⊕' },
-          { href: '/dashboard/my-events', label: 'My Events', icon: '◉' },
         ]
       : []),
     ...(user?.role === 'ADMIN'

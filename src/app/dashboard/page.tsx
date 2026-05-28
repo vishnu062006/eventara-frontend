@@ -1,15 +1,19 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/Navbar';
 import api from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import { 
   Search, SlidersHorizontal, Clock, PlayCircle, Archive, 
-  Plus, LayoutGrid, Calendar, MapPin, Users, X,
-  ShieldAlert, Star, ArrowRight
+  Plus, LayoutGrid, X, CalendarDays, TrendingUp, TrendingDown,
+  ChevronRight, Ticket, ArrowUpRight,
+  LayoutDashboard,
+  Wallet,
+  PlusCircle,
+  FlameKindling
 } from 'lucide-react';
 
 interface FilterState {
@@ -19,64 +23,111 @@ interface FilterState {
   date: string[];
 }
 
+// --- Next-Gen Hover Card ---
+interface GlassCardProps {
+  children: React.ReactNode;
+  className?: string;
+  onClick?: () => void;
+}
+
+function GlassCard({ children, className, onClick }: GlassCardProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+
+  const rotateX = useSpring(useTransform(y, [-0.5, 0.5], [5, -5]), { stiffness: 400, damping: 40 });
+  const rotateY = useSpring(useTransform(x, [-0.5, 0.5], [-5, 5]), { stiffness: 400, damping: 40 });
+  const glareX = useTransform(x, [-0.5, 0.5], ['-20%', '120%']);
+  const glareY = useTransform(y, [-0.5, 0.5], ['-20%', '120%']);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = ref.current?.getBoundingClientRect();
+    if (!rect) return;
+    x.set((e.clientX - rect.left) / rect.width - 0.5);
+    y.set((e.clientY - rect.top) / rect.height - 0.5);
+  };
+
+  const handleMouseLeave = () => {
+    x.set(0);
+    y.set(0);
+  };
+
+  return (
+    <motion.div
+      ref={ref}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      onClick={onClick}
+      style={{ rotateX, rotateY, transformStyle: 'preserve-3d', perspective: 1200 }}
+      className={`relative group rounded-[2rem] bg-white/[0.03] border border-white/[0.08] backdrop-blur-xl overflow-hidden transition-all duration-300 hover:bg-white/[0.06] ${
+        onClick ? 'cursor-pointer active:scale-[0.99]' : ''
+      } ${className}`}
+    >
+      <motion.div
+        className="absolute inset-0 z-20 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+        style={{
+          background: useTransform(
+            [glareX, glareY],
+            ([gx, gy]) => `radial-gradient(circle 300px at ${gx} ${gy}, rgba(255,255,255,0.12), transparent)`
+          ),
+        }}
+      />
+      {children}
+    </motion.div>
+  );
+}
+
+// --- Skeleton Loader Component ---
+const SkeletonCard = () => (
+  <div className="h-[420px] rounded-[2rem] bg-white/[0.02] border border-white/[0.05] overflow-hidden flex flex-col">
+    <div className="h-56 p-3 pb-0">
+      <div className="w-full h-full bg-white/[0.05] rounded-t-[20px] rounded-b-[8px] animate-pulse" />
+    </div>
+    <div className="p-6 flex-1 flex flex-col pt-4">
+      <div className="h-7 w-3/4 bg-white/[0.05] rounded-lg animate-pulse mb-4" />
+      <div className="h-4 w-1/2 bg-white/[0.05] rounded-md animate-pulse mb-6" />
+      <div className="mt-auto pt-4 border-t border-white/5 flex justify-between items-center">
+        <div className="h-5 w-16 bg-white/[0.05] rounded-md animate-pulse" />
+        <div className="h-10 w-32 bg-white/[0.05] rounded-xl animate-pulse" />
+      </div>
+    </div>
+  </div>
+);
+
 export default function Dashboard() {
   const router = useRouter();
   const { user } = useAuth();
 
-  // --- DATA STATE ---
   const [events, setEvents] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [accessRequestStatus, setAccessRequestStatus] = useState<string | null>(null);
-  const [requestLoading, setRequestLoading] = useState(false);
-
-  // --- FILTER UI STATE ---
+  const [activeTab, setActiveTab] = useState<'Overview' | 'Events' | 'Analytics'>('Overview');
+  
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
   const [filters, setFilters] = useState<FilterState>({
     status: [], type: [], price: [], date: []
   });
 
-  // --- API CALLS ---
-  const fetchEvents = async () => {
-    try {
-      const res = await api.get('/api/events');
-      setEvents(res.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchAccessRequestStatus = async () => {
-    try {
-      const res = await api.get('/api/access-requests/my-status');
-      setAccessRequestStatus(res.data.status || null);
-    } catch {
-      setAccessRequestStatus(null);
-    }
-  };
-
-  const handleRequestAccess = async () => {
-    setRequestLoading(true);
-    try {
-      await api.post('/api/access-requests');
-      setAccessRequestStatus('PENDING');
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Request failed');
-    } finally {
-      setRequestLoading(false);
-    }
-  };
+  const todayDate = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+  });
 
   useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const res = await api.get('/api/events');
+        setEvents(res.data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchEvents();
-    if (user?.role === 'STUDENT') fetchAccessRequestStatus();
-  }, [user]);
+  }, []);
 
-  // Click outside to close filter
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
@@ -87,377 +138,416 @@ export default function Dashboard() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filter Application
   useEffect(() => {
-    let result = events;
-    
-    // Search
+    let result = [...events];
+
     if (search) {
+      const s = search.toLowerCase();
       result = result.filter((e) =>
-        e.title.toLowerCase().includes(search.toLowerCase()) ||
-        (e.location && e.location.toLowerCase().includes(search.toLowerCase())) ||
-        (e.clubName && e.clubName.toLowerCase().includes(search.toLowerCase()))
+        (e.title && e.title.toLowerCase().includes(s)) ||
+        (e.category && e.category.toLowerCase().includes(s))
       );
     }
-    
-    // Exact Matches
-    if (filters.status.length > 0) result = result.filter(e => filters.status.includes(e.status));
-    if (filters.type.length > 0) result = result.filter(e => e.category && filters.type.includes(e.category));
-    if (filters.price.includes('Free')) result = result.filter(e => e.entryFee === 0 || e.entryFee === '0');
-    
+
+    if (filters.status.length > 0) {
+      result = result.filter(e => filters.status.includes(e.status));
+    } else {
+      result = result.filter(e => e.status === 'UPCOMING' || e.status === 'ONGOING');
+    }
+
+    if (filters.price.includes('Free')) {
+      result = result.filter(e => e.entryFee === 0 || e.entryFee === '0');
+    }
+
+    result.sort((a, b) => {
+      const dateA = a.eventDate ? new Date(a.eventDate).getTime() : Infinity;
+      const dateB = b.eventDate ? new Date(b.eventDate).getTime() : Infinity;
+      return dateA - dateB;
+    });
+
     setFiltered(result);
   }, [events, search, filters]);
 
-  // Derived Stats
+  // --- Dynamic Trend Calculation Engine ---
+  // Calculates Month-over-Month percentage changes dynamically from the real dataset
+  const getTrend = (filterFn: (e: any) => boolean) => {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+    const targetEvents = events.filter(filterFn);
+    
+    // Fallback: If no dates exist in the DB, return 0% to prevent NaN/errors
+    if (!targetEvents.some(e => e.eventDate)) return { trend: '0.0%', isPos: null };
+
+    const currentCount = targetEvents.filter(e => e.eventDate && new Date(e.eventDate) >= thirtyDaysAgo).length;
+    const previousCount = targetEvents.filter(e => e.eventDate && new Date(e.eventDate) >= sixtyDaysAgo && new Date(e.eventDate) < thirtyDaysAgo).length;
+
+    if (previousCount === 0) return { trend: currentCount > 0 ? '+100%' : '0.0%', isPos: currentCount > 0 ? true : null };
+    
+    const percentage = ((currentCount - previousCount) / previousCount) * 100;
+    return { 
+      trend: `${percentage > 0 ? '+' : ''}${percentage.toFixed(1)}%`, 
+      isPos: percentage === 0 ? null : percentage > 0 
+    };
+  };
+
   const stats = {
     total: events.length,
     upcoming: events.filter((e) => e.status === 'UPCOMING').length,
     ongoing: events.filter((e) => e.status === 'ONGOING').length,
     expired: events.filter((e) => e.status === 'EXPIRED').length,
+    trends: {
+      total: getTrend(() => true),
+      upcoming: getTrend(e => e.status === 'UPCOMING'),
+      ongoing: getTrend(e => e.status === 'ONGOING'),
+      expired: getTrend(e => e.status === 'EXPIRED'),
+    }
   };
 
   const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+    const h = new Date().getHours();
+    if (h < 12) return 'Morning';
+    if (h < 17) return 'Afternoon';
+    return 'Evening';
   };
 
   const toggleFilter = (category: keyof FilterState, value: string) => {
     setFilters(prev => ({
       ...prev,
-      [category]: prev[category].includes(value) ? prev[category].filter(item => item !== value) : [...prev[category], value]
+      [category]: prev[category].includes(value)
+        ? prev[category].filter(item => item !== value)
+        : [...prev[category], value]
     }));
   };
 
-  const clearFilters = () => setFilters({ status: [], type: [], price: [], date: [] });
   const activeFilterCount = Object.values(filters).flat().length;
 
   return (
-    <div className="min-h-screen bg-[#0E1116] text-zinc-50 font-sans selection:bg-indigo-500/30 flex flex-col md:flex-row">
-      
-      {/* Navbar Integration */}
+    <div className="min-h-screen bg-[#030305] text-slate-200 font-sans selection:bg-cyan-500/30 overflow-x-hidden relative flex flex-col md:flex-row">
+      {/* Background Ambient Gradients */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-violet-600/10 blur-[120px]" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-cyan-600/10 blur-[120px]" />
+      </div>
+
       <Navbar />
 
-      {/* Main Content Area (padding-top adjusted to clear floating navbar smoothly) */}
-      <main className="flex-1 max-w-[1400px] w-full mx-auto px-6 pt-28 pb-10 md:pt-32 md:pb-12">
+      <main className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-6 pt-28 pb-10 md:pt-32 flex flex-col min-h-screen">
         
-        {/* 1. HERO HEADER */}
+        {/* HERO HEADER */}
         <motion.div
-          initial={{ opacity: 0, y: 15 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6"
+          className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-8"
         >
           <div>
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white flex items-center gap-3 mb-1.5">
-              <span className="animate-wave origin-bottom-right">👋</span> {getGreeting()}, {user?.name.split(' ')[0]}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-[2px] w-8 bg-gradient-to-r from-cyan-400 to-transparent rounded-full" />
+              <p className="text-xs font-bold text-cyan-400 tracking-[0.2em] uppercase flex items-center gap-2">
+                <CalendarDays size={14} />
+                {todayDate}
+              </p>
+            </div>
+            <h1 className="text-4xl md:text-5xl font-black tracking-tight text-white mb-2">
+              Good {getGreeting().toLowerCase()}, {user?.name?.split(' ')[0] || 'Guest'}.
             </h1>
-            <p className="text-zinc-400 text-sm font-medium">
-              Here's what's happening with your events today.
+            <p className="text-slate-400 font-medium text-lg">
+              Here is the latest overview of your active events and analytics.
             </p>
           </div>
 
           {(user?.role === 'EVENT_ADMIN' || user?.role === 'ADMIN') && (
             <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => router.push('/dashboard/create')}
-              className="flex items-center gap-2 font-semibold px-5 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all shadow-[0_0_20px_rgba(99,102,241,0.2)] shrink-0"
+              className="group relative flex items-center gap-2 px-7 py-3.5 rounded-2xl bg-white text-black font-bold tracking-wide overflow-hidden shadow-[0_0_40px_rgba(255,255,255,0.1)] shrink-0"
             >
-              <Plus size={18} />
-              <span>Create Event</span>
+              <div className="absolute inset-0 bg-gradient-to-r from-violet-400 to-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <Plus size={20} className="relative z-10 group-hover:text-white transition-colors" />
+              <span className="relative z-10 group-hover:text-white transition-colors">Create Event</span>
             </motion.button>
           )}
         </motion.div>
 
-        {/* 2. STATS CARDS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: 'Total Events', value: stats.total, icon: LayoutGrid, color: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/40', trend: '↑ 12%', sub: 'All time events created' },
-            { label: 'Upcoming', value: stats.upcoming, icon: Clock, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/40', trend: '↑ 8%', sub: 'Starting soon' },
-            { label: 'Ongoing', value: stats.ongoing, icon: PlayCircle, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/40', trend: '— 0%', sub: 'Happening now' },
-            { label: 'Expired', value: stats.expired, icon: Archive, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/40', trend: '↓ 5%', sub: 'Completed events' },
-          ].map((stat, i) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: i * 0.05 }}
-              className={`rounded-2xl p-5 bg-[#14171E] border ${stat.border} flex items-center gap-4 shadow-sm hover:shadow-[0_8px_30px_rgba(0,0,0,0.3)] transition-shadow duration-300`}
+        {/* SAAS TABS NAVIGATION */}
+        <div className="flex items-center gap-6 border-b border-white/[0.08] mb-10 overflow-x-auto hide-scrollbar">
+          {['Overview', 'Events', 'Analytics'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab as any)}
+              className={`relative pb-4 text-sm font-bold tracking-wide transition-colors whitespace-nowrap ${
+                activeTab === tab ? 'text-white' : 'text-slate-500 hover:text-slate-300'
+              }`}
             >
-              <div className={`p-4 rounded-xl ${stat.bg} ${stat.color} shrink-0`}>
-                <stat.icon size={28} strokeWidth={1.5} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-3xl font-bold text-white tracking-tight leading-none mb-1">{stat.value}</div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-semibold text-zinc-300 truncate">{stat.label}</span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${stat.trend.includes('↑') ? 'bg-emerald-500/10 text-emerald-400' : stat.trend.includes('↓') ? 'bg-rose-500/10 text-rose-400' : 'bg-zinc-500/10 text-zinc-400'}`}>
-                    {stat.trend}
-                  </span>
-                </div>
-                <div className="text-[11px] text-zinc-500 truncate">{stat.sub}</div>
-              </div>
-            </motion.div>
+              {tab}
+              {activeTab === tab && (
+                <motion.div
+                  layoutId="activeTab"
+                  className="absolute bottom-0 left-0 right-0 h-[2px] bg-cyan-400 rounded-t-full shadow-[0_0_10px_rgba(34,211,238,0.5)]"
+                />
+              )}
+            </button>
           ))}
         </div>
 
-        {/* 3. SEARCH & FILTERS BAR */}
-        <div className="relative mb-8" ref={filterRef}>
-          <div className="flex flex-col md:flex-row items-center gap-3">
-            
-            {/* Command-Bar Style Search */}
-            <div className="relative flex-1 w-full group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-indigo-400 transition-colors" size={18} />
-              <input
-                type="text"
-                placeholder="Search events by name, type, or club..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-[#14171E] border border-white/10 rounded-xl py-3.5 pl-11 pr-16 text-sm font-medium text-white placeholder:text-zinc-600 focus:outline-none focus:border-indigo-500/50 transition-all"
-              />
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-1 pointer-events-none">
-                <span className="bg-white/5 border border-white/10 text-zinc-500 text-[10px] px-1.5 py-0.5 rounded font-mono">⌘</span>
-                <span className="bg-white/5 border border-white/10 text-zinc-500 text-[10px] px-1.5 py-0.5 rounded font-mono">K</span>
-              </div>
-            </div>
-
-            {/* Premium Filter Button */}
-            <button
-              onClick={() => setIsFilterOpen(!isFilterOpen)}
-              className={`relative flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl border transition-all shrink-0 ${
-                isFilterOpen || activeFilterCount > 0 
-                  ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400' 
-                  : 'bg-[#14171E] border-white/10 text-zinc-400 hover:text-white hover:border-white/20'
-              }`}
+        {/* TAB CONTENT: OVERVIEW */}
+        <AnimatePresence mode="wait">
+          {(activeTab === 'Overview' || activeTab === 'Analytics') && (
+            <motion.div
+              key="overview-content"
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
             >
-              <SlidersHorizontal size={18} />
-              <span className="text-sm font-medium">Filters</span>
-              {activeFilterCount > 0 && (
-                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] font-bold">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* Active Filter Chips */}
-          <AnimatePresence>
-            {activeFilterCount > 0 && (
-              <motion.div 
-                initial={{ opacity: 0, height: 0 }} 
-                animate={{ opacity: 1, height: 'auto' }} 
-                exit={{ opacity: 0, height: 0 }} 
-                className="flex flex-wrap gap-2 mt-4 overflow-hidden"
-              >
-                {Object.entries(filters).map(([category, values]) => 
-                  values.map((val: string) => (
-                    <span key={`${category}-${val}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#14171E] border border-white/10 text-xs font-medium text-zinc-300">
-                      <span className="text-zinc-500 capitalize">{category}:</span> {val}
-                      <button onClick={() => toggleFilter(category as keyof FilterState, val)} className="ml-1 hover:text-white transition-colors focus:outline-none">
-                        <X size={12}/>
-                      </button>
-                    </span>
-                  ))
-                )}
-                <button onClick={clearFilters} className="px-3 py-1.5 text-xs font-medium text-zinc-500 hover:text-white transition-colors">
-                  Clear all
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Floating Filter Popover */}
-          <AnimatePresence>
-            {isFilterOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.98 }}
-                transition={{ duration: 0.2 }}
-                className="absolute right-0 top-[65px] w-[320px] sm:w-[400px] p-5 bg-[#14171E] border border-white/10 rounded-2xl shadow-[0_30px_60px_rgba(0,0,0,0.8)] z-50"
-              >
-                <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/5">
-                  <h3 className="font-semibold text-white">Filters</h3>
-                  <button onClick={() => setIsFilterOpen(false)} className="text-zinc-500 hover:text-white transition-colors"><X size={16}/></button>
-                </div>
-
-                <div className="space-y-6">
-                  {/* Status Selection */}
-                  <div>
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-3 block">Status</label>
-                    <div className="flex flex-wrap gap-2">
-                      {['UPCOMING', 'ONGOING', 'EXPIRED'].map(s => (
-                        <button key={s} onClick={() => toggleFilter('status', s)} className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${filters.status.includes(s) ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300' : 'bg-white/[0.03] border-white/5 text-zinc-400 hover:bg-white/10'}`}>
-                          {s.charAt(0) + s.slice(1).toLowerCase()}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Type Selection */}
-                  <div>
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-3 block">Event Type</label>
-                    <div className="flex flex-wrap gap-2">
-                      {['Hackathon', 'Workshop', 'Tech Talk', 'Cultural', 'Sports'].map(type => (
-                        <button key={type} onClick={() => toggleFilter('type', type)} className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${filters.type.includes(type) ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300' : 'bg-white/[0.03] border-white/5 text-zinc-400 hover:bg-white/10'}`}>
-                          {type}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Price Selection */}
-                  <div>
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-3 block">Price</label>
-                    <div className="flex flex-wrap gap-2">
-                      {['Free', 'Paid'].map(p => (
-                        <button key={p} onClick={() => toggleFilter('price', p)} className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${filters.price.includes(p) ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300' : 'bg-white/[0.03] border-white/5 text-zinc-400 hover:bg-white/10'}`}>
-                          {p}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Filter Actions */}
-                <div className="mt-6 pt-4 border-t border-white/5 flex gap-3">
-                  <button onClick={clearFilters} className="flex-1 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors bg-white/[0.03] rounded-lg">Clear All</button>
-                  <button onClick={() => setIsFilterOpen(false)} className="flex-1 py-2 text-sm font-medium text-white bg-indigo-500 hover:bg-indigo-600 transition-colors rounded-lg shadow-md">Apply</button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <h2 className="text-xl font-bold text-white mb-6">All Events</h2>
-
-        {/* 4. EVENT CARDS GRID */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="rounded-2xl bg-[#14171E] border border-white/5 h-[360px] animate-pulse" />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center py-24 border border-white/5 border-dashed rounded-3xl text-center bg-white/[0.01]"
-          >
-            <Search className="text-zinc-600 mb-4" size={32} />
-            <h3 className="text-xl font-bold text-white mb-2">No events found</h3>
-            <p className="text-sm text-zinc-500">Try adjusting your search or filters.</p>
-          </motion.div>
-        ) : (
-          <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            <AnimatePresence mode="popLayout">
-              {filtered.map((event, i) => {
-                // Derived UI Props
-                const isUpcoming = event.status === 'UPCOMING';
-                const isOngoing = event.status === 'ONGOING';
-                const statusColor = isUpcoming ? 'text-emerald-400 bg-emerald-500/20' : isOngoing ? 'text-amber-400 bg-amber-500/20' : 'text-rose-400 bg-rose-500/20';
-                const dotColor = isUpcoming ? 'bg-emerald-400' : isOngoing ? 'bg-amber-400' : 'bg-rose-400';
-                
-                const formattedDate = event.eventDate 
-                  ? new Date(event.eventDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) 
-                  : 'TBD';
-
-                return (
+              {/* GLASS STATS WITH DYNAMIC % IMPROVEMENT */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                {[
+                  { label: 'Total Events', value: stats.total, icon: LayoutDashboard, color: 'text-violet-400', trend: stats.trends.total },
+                  { label: 'Upcoming', value: stats.upcoming, icon: CalendarDays, color: 'text-cyan-400', trend: stats.trends.upcoming },
+                  { label: 'Live Now', value: stats.ongoing, icon: FlameKindling, color: 'text-emerald-400', trend: stats.trends.ongoing },
+                  { label: 'Archived', value: stats.expired, icon: PlusCircle, color: 'text-slate-500', trend: stats.trends.expired },
+                ].map((stat, i) => (
                   <motion.div
-                    layout
-                    key={event.id}
+                    key={stat.label}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.4, delay: i * 0.05 }}
-                    className="group relative bg-[#14171E] border border-white/10 hover:border-white/20 rounded-2xl overflow-hidden shadow-lg transition-all flex flex-col h-[380px]"
+                    transition={{ delay: i * 0.1 }}
+                    className="relative p-6 rounded-[2rem] bg-white/[0.02] border border-white/[0.05] backdrop-blur-md hover:bg-white/[0.04] transition-colors"
                   >
-                    {/* Top Abstract Image Area */}
-                    <div className="relative h-44 w-full bg-[#0a0a0c] overflow-hidden">
-                      {event.imageUrl ? (
-                        <img src={event.imageUrl} alt={event.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500" />
-                      ) : (
-                        <div className="absolute inset-0 opacity-70 group-hover:opacity-100 transition-opacity" style={{
-                          background: `radial-gradient(ellipse at top left, ${['#312e81', '#831843', '#064e3b', '#4c1d95'][i % 4]}, transparent), radial-gradient(ellipse at bottom right, #000, transparent)`
-                        }} />
-                      )}
-                      
-                      {/* Top Overlay Gradients */}
-                      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-[#14171E]" />
-
-                      {/* Floating Status Badge */}
-                      <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 border border-white/10 backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider">
-                        <span className={`w-1.5 h-1.5 rounded-full ${dotColor} ${isOngoing ? 'animate-pulse' : ''}`} />
-                        {event.status}
-                      </div>
-
-                      <button className="absolute top-3 right-3 p-1.5 rounded-full bg-black/50 border border-white/10 backdrop-blur-md text-zinc-400 hover:text-white transition-colors">
-                        <Star size={14} />
-                      </button>
-
-                      {/* Floating Date Badge */}
-                      <div className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-black/40 border border-white/5 backdrop-blur-md text-xs font-medium text-zinc-300">
-                        <Calendar size={12} className="text-zinc-400" />
-                        {formattedDate}
-                      </div>
+                    <div className="flex justify-between items-start mb-3">
+                      <span className="text-sm font-medium text-slate-400">{stat.label}</span>
+                      <stat.icon size={20} className={stat.color} />
                     </div>
-
-                    {/* Content Area */}
-                    <div className="p-5 flex flex-col flex-1 relative z-10">
-                      <h3 className="text-lg font-bold text-white tracking-tight mb-2 line-clamp-1 group-hover:text-indigo-400 transition-colors">
-                        {event.title}
-                      </h3>
-                      
-                      <p className="text-sm text-zinc-400 line-clamp-2 mb-4 leading-relaxed font-light">
-                        {event.description || 'Join us for this amazing campus event.'}
-                      </p>
-
-                      <div className="flex items-center gap-4 text-xs text-zinc-500 mb-6 font-medium mt-auto">
-                        <span className="flex items-center gap-1.5 line-clamp-1 truncate">
-                          <MapPin size={14} /> {event.location || 'TBA'}
-                        </span>
-                        <span className="flex items-center gap-1.5 line-clamp-1 truncate">
-                          <ShieldAlert size={14} /> {event.clubName || 'Organizer'}
-                        </span>
-                      </div>
-
-                      {/* Footer Actions (Ghost Buttons) */}
-                      <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-auto">
-                        <span className="text-sm font-bold text-emerald-400">
-                          {event.entryFee === 0 || event.entryFee === '0' ? 'Free' : `₹${event.entryFee}`}
-                        </span>
-                        
-                        <button 
-                          onClick={() => router.push(`/dashboard/events/${event.id}`)}
-                          className="px-4 py-2 bg-transparent border border-indigo-500/50 text-indigo-400 hover:bg-indigo-500/10 hover:text-indigo-300 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                        >
-                          View Details
-                        </button>
-                      </div>
+                    <div className="flex items-baseline gap-3">
+                      <div className="text-4xl font-black text-white">{stat.value}</div>
+                      {stat.trend.isPos !== null && (
+                        <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full bg-white/[0.03] border border-white/[0.05] ${stat.trend.isPos ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {stat.trend.isPos ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                          {stat.trend.trend}
+                        </div>
+                      )}
                     </div>
                   </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </motion.div>
-        )}
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* TAB CONTENT: EVENTS & OVERVIEW (Grid Section) */}
+        <AnimatePresence mode="wait">
+          {(activeTab === 'Overview' || activeTab === 'Events') && (
+            <motion.div
+              key="events-content"
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Ticket className="text-violet-400" size={20} /> 
+                  {activeTab === 'Overview' ? 'Featured Events' : 'All Events'}
+                </h2>
+                {activeTab === 'Overview' && (
+                  <button 
+                    onClick={() => setActiveTab('Events')}
+                    className="text-sm font-bold text-cyan-400 hover:text-white transition-colors flex items-center gap-1"
+                  >
+                    View All <ChevronRight size={16} />
+                  </button>
+                )}
+              </div>
+
+              {/* SEARCH & FILTERS */}
+              {activeTab === 'Events' && (
+                <div className="relative mb-10" ref={filterRef}>
+                  <div className="flex flex-col md:flex-row items-center gap-4">
+                    <div className="relative flex-1 w-full group">
+                      <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-white transition-colors" size={20} />
+                      <input
+                        type="text"
+                        placeholder="Search events by name or category..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="w-full bg-white/[0.03] border border-white/[0.1] rounded-2xl py-4 pl-14 pr-6 text-base font-medium text-white placeholder:text-slate-600 focus:outline-none focus:bg-white/[0.06] transition-all backdrop-blur-md"
+                      />
+                    </div>
+
+                    <button
+                      onClick={() => setIsFilterOpen(!isFilterOpen)}
+                      className={`flex items-center gap-3 px-6 py-4 rounded-2xl border backdrop-blur-md transition-all shrink-0 ${
+                        isFilterOpen || activeFilterCount > 0
+                          ? 'bg-white/10 border-white/20 text-white'
+                          : 'bg-white/[0.03] border-white/[0.1] text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <SlidersHorizontal size={20} />
+                      <span className="font-medium">Filter</span>
+                      {activeFilterCount > 0 && (
+                        <span className="w-5 h-5 flex items-center justify-center rounded-full bg-white text-black text-xs font-bold">
+                          {activeFilterCount}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+
+                  <AnimatePresence>
+                    {isFilterOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                        className="absolute right-0 top-[75px] w-full max-w-sm p-6 bg-[#0a0a0f]/95 backdrop-blur-2xl border border-white/10 rounded-[2rem] shadow-2xl z-50"
+                      >
+                        <div className="flex justify-between items-center mb-6">
+                          <h3 className="text-lg font-bold text-white">Filters</h3>
+                          <button onClick={() => setIsFilterOpen(false)} className="text-slate-500 hover:text-white p-1"><X size={20} /></button>
+                        </div>
+                        <div className="space-y-6">
+                          <div>
+                            <label className="text-xs font-bold tracking-wider text-slate-500 uppercase mb-3 block">Status</label>
+                            <div className="flex flex-wrap gap-2">
+                              {['UPCOMING', 'ONGOING', 'EXPIRED'].map(s => (
+                                <button 
+                                  key={s} 
+                                  onClick={() => toggleFilter('status', s)} 
+                                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${filters.status.includes(s) ? 'bg-white text-black' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}
+                                >
+                                  {s.charAt(0) + s.slice(1).toLowerCase()}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-xs font-bold tracking-wider text-slate-500 uppercase mb-3 block">Price</label>
+                            <div className="flex flex-wrap gap-2">
+                              {['Free', 'Paid'].map(p => (
+                                <button 
+                                  key={p} 
+                                  onClick={() => toggleFilter('price', p)} 
+                                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${filters.price.includes(p) ? 'bg-white text-black' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}
+                                >
+                                  {p}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+
+              {/* EVENTS GRID */}
+              {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <SkeletonCard key={i} />
+                  ))}
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="py-32 flex flex-col items-center justify-center text-center">
+                  <div className="w-20 h-20 mb-6 rounded-full bg-white/5 flex items-center justify-center">
+                    <Search size={32} className="text-slate-500" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-2">No active events found</h3>
+                  <p className="text-slate-500">
+                  Try adjusting your search or changing filters to explore other events.
+                  </p>
+                </div>
+              ) : (
+                <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  <AnimatePresence>
+                    {(activeTab === 'Overview' ? filtered.slice(0, 3) : filtered).map((event, i) => {
+                      const isUpcoming = event.status === 'UPCOMING';
+                      const isOngoing = event.status === 'ONGOING';
+                      
+                      const statusBadge = isOngoing
+                        ? <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live</span>
+                        : isUpcoming 
+                        ? <span className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-bold uppercase tracking-wider">Upcoming</span>
+                        : <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400 text-xs font-bold uppercase tracking-wider">Ended</span>;
+
+                      const date = event.eventDate ? new Date(event.eventDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'TBD';
+
+                      return (
+                        <motion.div
+                          layout
+                          key={event.id}
+                          initial={{ opacity: 0, y: 30 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{ duration: 0.4, delay: i * 0.05 }}
+                        >
+                          <GlassCard className="h-[420px] flex flex-col">
+                            <div className="h-56 relative w-full overflow-hidden p-3" onClick={() => router.push(`/dashboard/events/${event.id}`)}>
+                              <div className="absolute inset-3 rounded-2xl overflow-hidden z-0 bg-white/[0.02]">
+                                 {event.imageUrl ? (
+                                  <>
+                                    <img src={event.imageUrl} alt={event.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-[#030305] via-[#030305]/20 to-transparent opacity-90" />
+                                  </>
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-violet-900/20 to-black/40 flex items-center justify-center">
+                                     <CalendarDays size={32} className="text-white/10" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="relative z-10 flex justify-end p-2">
+                                {statusBadge}
+                              </div>
+                            </div>
+                            
+                            <div className="p-6 flex-1 flex flex-col pt-2">
+                              <h3 
+                                onClick={() => router.push(`/dashboard/events/${event.id}`)}
+                                className="text-xl font-bold text-white mb-2 line-clamp-1 group-hover:text-cyan-400 transition-colors cursor-pointer"
+                              >
+                                {event.title}
+                              </h3>
+                              <p className="text-sm text-slate-400 mb-6 flex items-center gap-2">
+                                <CalendarDays size={14} className="text-slate-500" /> 📅 {date}
+                              </p>
+                              
+                              <div className="mt-auto flex items-center justify-between pt-4 border-t border-white/5">
+                                <span className="text-sm text-slate-300 font-medium">
+                                  {event.entryFee === 0 || event.entryFee === '0' ? 'Free Entry' : `🎟 ₹${event.entryFee}`}
+                                </span>
+                                
+                                {/* PRIMARY FILLED CTA BUTTON */}
+                                <button 
+                                  onClick={() => router.push(`/dashboard/events/${event.id}`)}
+                                  className="px-5 py-2 rounded-xl bg-white text-black text-xs font-extrabold tracking-wide hover:bg-cyan-400 hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] transition-all flex items-center gap-1.5 active:scale-95"
+                                >
+                                  Register Now <ArrowUpRight size={14} strokeWidth={2.5} />
+                                </button>
+                              </div>
+                            </div>
+                          </GlassCard>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        {/* PROFESSIONAL FOOTER */}
+        <footer className="mt-auto pt-16 pb-6 w-full border-t border-white/[0.05] flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-slate-500">
+          <p className="font-medium tracking-wide">
+            © {new Date().getFullYear()} Eventara. All rights reserved.
+          </p>
+          <div className="flex items-center gap-8 font-medium">
+            <a href="#" className="hover:text-white transition-colors">Privacy</a>
+            <a href="#" className="hover:text-white transition-colors">Terms</a>
+            <a href="#" className="hover:text-cyan-400 transition-colors flex items-center gap-2">
+               Support <ChevronRight size={14} />
+            </a>
+          </div>
+        </footer>
 
       </main>
-
-      <style jsx global>{`
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        @keyframes wave {
-          0%, 100% { transform: rotate(0deg); }
-          25% { transform: rotate(15deg); }
-          75% { transform: rotate(-10deg); }
-        }
-        .animate-wave {
-          display: inline-block;
-          animation: wave 1.5s infinite;
-        }
-      `}</style>
     </div>
   );
 }
