@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform, useSpring, type Variants } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/Navbar';
 import api from '@/lib/api';
@@ -89,8 +89,15 @@ function HolographicTicket({ children }: { children: React.ReactNode }) {
   );
 }
 
-const staggerContainer = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
-const fadeUp = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } } };
+const staggerContainer: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
+};
+
+const fadeUp = { 
+  hidden: { opacity: 0, y: 20 }, 
+  visible: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 24 } } 
+};
 
 // Mock categories for visual realism based on event ID
 const getCategory = (id: number) => ['TECH', 'CULTURAL', 'WORKSHOP', 'SPORTS', 'SEMINAR'][id % 5];
